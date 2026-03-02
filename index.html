@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAL - Lesson 3 Index</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono&display=swap');
+        
+        :root {
+            --algae-dark: #1b4332;
+            --algae-mid: #2d6a4f;
+            --algae-accent: #22c55e;
+            /* Verde salvia intenso para resaltar las tarjetas blancas */
+            --bg-sage-green: #dcede4; 
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-sage-green); 
+            color: #1e293b;
+        }
+
+        .card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            border: 1px solid rgba(45, 106, 79, 0.15);
+        }
+
+        .card:hover { 
+            transform: translateY(-5px); 
+            border-color: var(--algae-mid); 
+            box-shadow: 0 20px 40px -10px rgba(27, 67, 50, 0.2); 
+        }
+
+        .btn-lang { transition: all 0.2s; background: white; border: 1px solid #cbd5e1; }
+        .btn-lang.active { background: var(--algae-dark); color: white; font-weight: bold; border-color: var(--algae-dark); }
+        
+        .accent-line {
+            height: 4px;
+            width: 50px;
+            background: var(--algae-mid);
+            border-radius: 2px;
+        }
+
+        .header-bg {
+            background: radial-gradient(circle at top right, rgba(45, 106, 79, 0.15), transparent);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6 md:p-12 header-bg">
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Selector de Idioma -->
+        <div class="flex justify-end gap-2 mb-10 no-print">
+            <button onclick="setLang('es')" id="btn-es" class="btn-lang px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">ES</button>
+            <button onclick="setLang('en')" id="btn-en" class="btn-lang px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">EN</button>
+            <button onclick="setLang('de')" id="btn-de" class="btn-lang px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">DE</button>
+        </div>
+
+        <!-- Header con Identidad Corporativa -->
+        <header class="mb-14">
+            <div class="accent-line mb-6"></div>
+            <p id="sub-header" class="text-emerald-900 font-mono text-[10px] font-bold uppercase tracking-[0.3em] mb-2">CIESOL / Departamento de Ingeniería Química - UAL</p>
+            <h1 class="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-none mb-4">
+                <span id="lesson-text"></span> <span class="text-emerald-700">03</span>
+            </h1>
+            <p id="header-desc" class="text-slate-700 max-w-2xl text-lg font-light leading-relaxed italic"></p>
+        </header>
+
+        <!-- Grid de Recursos (5 archivos reales de la Lección 3) -->
+        <main class="grid grid-cols-1 md:grid-cols-2 gap-6" id="main-grid">
+            <!-- Cargado dinámicamente por JS -->
+        </main>
+
+        <!-- Footer con Atribución Personalizada -->
+        <footer class="mt-20 pt-10 border-t border-slate-300 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="text-[10px] text-slate-500 uppercase font-semibold tracking-[0.2em] text-center md:text-left">
+                CIESOL / Departamento de Ingeniería Química • UAL • 2026
+            </div>
+            <div class="bg-white/60 backdrop-blur px-8 py-4 rounded-2xl border border-emerald-200 text-center shadow-sm">
+                <p class="text-[11px] font-medium text-emerald-950">
+                    <span id="attribution"></span>
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const langData = {
+            es: {
+                lesson: "LECCIÓN",
+                desc: "Cinética de crecimiento y modelado matemático del desarrollo celular bajo condiciones de irradiancia variable y efectos de mezclado.",
+                attr: "Diseñado por José María Fernández-Sevilla - Asistido por Google Gemini",
+                btn: "Lanzar Recurso →",
+                items: [
+                    { t: "Modelo de Molina et al.", d: "Simulador interactivo del modelo basado en la irradiancia media (Iav).", f: "1-ShowMolina.Ok.html", cat: "CINÉTICA" },
+                    { t: "Competencia de Especies", d: "Comparativa dinámica de dos especies microalgales bajo el modelo de Molina.", f: "2-ShowMolina.2Species.Ok.html", cat: "ANÁLISIS" },
+                    { t: "Maestro de Modelos Cinéticos", d: "Herramienta integral: Tamiya, Van Oorshot, Blackmann, Molina, Bannister y Camacho-Rubio.", f: "3-ShowAllKineticModels.Ok.html", cat: "MASTER TOOL" },
+                    { t: "Benchmarker de Regresión", d: "Análisis estadístico y comparación de ajustes entre Molina, Bannister y Camacho-Rubio.", f: "4-RegressionMolinaBannisterCamacho.html", cat: "DATOS" },
+                    { t: "Efectos de Mezclado y Luz", d: "Simulador avanzado que integra modelos cinéticos con perfiles de luz y efectos de mezcla.", f: "5-ShowKineticAndLightModelsWithMixinEffect.OK.html", cat: "AVANZADO" }
+                ]
+            },
+            en: {
+                lesson: "LESSON",
+                desc: "Growth kinetics and mathematical modeling of cellular development under variable irradiance and mixing conditions.",
+                attr: "Designed by José María Fernández-Sevilla - Assisted by Google Gemini",
+                btn: "Launch Resource →",
+                items: [
+                    { t: "Molina et al. Model", d: "Interactive simulator of the growth model based on average irradiance (Iav).", f: "1-ShowMolina.Ok.html", cat: "KINETICS" },
+                    { t: "Species Competition", d: "Dynamic comparison of two microalgae species using the Molina model.", f: "2-ShowMolina.2Species.Ok.html", cat: "ANALYSIS" },
+                    { t: "Kinetic Models Master", d: "Comprehensive tool: Tamiya, Van Oorshot, Blackmann, Molina, Bannister & Camacho-Rubio.", f: "3-ShowAllKineticModels.Ok.html", cat: "MASTER TOOL" },
+                    { t: "Regression Benchmarker", d: "Statistical analysis and fitting comparison between Molina, Bannister, and Camacho-Rubio.", f: "4-RegressionMolinaBannisterCamacho.html", cat: "DATA" },
+                    { t: "Mixing & Light Effects", d: "Advanced simulator integrating kinetic models with light profiles and mixing effects.", f: "5-ShowKineticAndLightModelsWithMixinEffect.OK.html", cat: "ADVANCED" }
+                ]
+            },
+            de: {
+                lesson: "LEKTION",
+                desc: "Wachstumskinetik und mathematische Modellierung der Zellentwicklung unter variablen Bestrahlungs- und Mischbedingungen.",
+                attr: "Entworfen von José María Fernández-Sevilla - Unterstützt durch Google Gemini",
+                btn: "Ressource starten →",
+                items: [
+                    { t: "Molina et al. Modell", d: "Interaktiver Simulator des auf der mittleren Bestrahlungsstärke (Iav) basierenden Modells.", f: "1-ShowMolina.Ok.html", cat: "KINETIK" },
+                    { t: "Artenwettbewerb", d: "Dynamischer Vergleich zweier Algenarten mit dem Molina-Modell.", f: "2-ShowMolina.2Species.Ok.html", cat: "ANALYSE" },
+                    { t: "Kinetik-Modell-Master", d: "Umfassendes Tool: Tamiya, Van Oorshot, Blackmann, Molina, Bannister & Camacho-Rubio.", f: "3-ShowAllKineticModels.Ok.html", cat: "MASTER TOOL" },
+                    { t: "Regressions-Benchmarker", d: "Statistische Analyse und Vergleich von Molina, Bannister und Camacho-Rubio.", f: "4-RegressionMolinaBannisterCamacho.html", cat: "DATEN" },
+                    { t: "Mischungs- & Lichteffekte", d: "Fortgeschrittener Simulator für Kinetikmodelle, Lichtprofile und Mischungseffekte.", f: "5-ShowKineticAndLightModelsWithMixinEffect.OK.html", cat: "ERWEITERT" }
+                ]
+            }
+        };
+
+        function setLang(lang) {
+            const data = langData[lang];
+            document.getElementById('lesson-text').innerText = data.lesson;
+            document.getElementById('header-desc').innerText = data.desc;
+            document.getElementById('attribution').innerText = data.attr;
+            
+            document.querySelectorAll('.btn-lang').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${lang}`).classList.add('active');
+
+            const grid = document.getElementById('main-grid');
+            grid.innerHTML = '';
+            
+            data.items.forEach((item, idx) => {
+                // El Master Tool (tercer elemento) destaca en el centro
+                const isFull = idx === 2;
+                grid.innerHTML += `
+                    <a href="${item.f}" class="card p-8 rounded-3xl flex flex-col justify-between ${isFull ? 'md:col-span-2' : ''}">
+                        <div>
+                            <span class="text-[9px] font-mono text-emerald-800 font-bold uppercase tracking-widest">${item.cat}</span>
+                            <h3 class="text-xl font-extrabold text-slate-900 mt-2">${item.t}</h3>
+                            <p class="text-sm text-slate-600 mt-4 leading-relaxed italic">${item.d}</p>
+                        </div>
+                        <div class="mt-8 flex items-center text-emerald-800 text-[10px] font-black uppercase tracking-widest group">
+                            <span class="border-b-2 border-emerald-700 pb-1 group-hover:border-emerald-400 group-hover:text-emerald-600 transition-all">${data.btn}</span>
+                        </div>
+                    </a>
+                `;
+            });
+        }
+
+        setLang('es');
+    </script>
+</body>
+</html>

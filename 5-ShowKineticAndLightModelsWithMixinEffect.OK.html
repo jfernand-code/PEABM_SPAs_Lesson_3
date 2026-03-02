@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAL - Simulador Fotobiotecnología Pro</title>
+    
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$']] },
+            chtml: { scale: 0.7 }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --green-dark: #1b5e20; --theory: #d35400; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .lang-panel { align-self: flex-end; margin-bottom: 15px; display: flex; gap: 8px; }
+        .lang-btn { background: white; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85em; font-weight: 600; color: var(--primary); transition: 0.3s; }
+        .lang-btn:hover { background: var(--primary); color: white; }
+        .header { text-align: center; margin-bottom: 25px; width: 100%; max-width: 1300px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border-top: 5px solid var(--primary); }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; max-width: 1500px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex: 1; min-width: 380px; }
+        .graph-card { flex: 2.8; min-width: 700px; height: 720px; }
+        h3 { font-size: 1.1em; color: var(--primary); border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 15px; }
+        .input-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 3px; font-weight: bold; font-size: 0.82em; color: #555; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        select { background-color: #f1f9ff; font-weight: 600; color: var(--primary); border: 2px solid #3498db; margin-bottom: 10px; cursor: pointer; }
+        .comp-panel { display: flex; gap: 10px; margin-top: 15px; }
+        .comp-box { flex: 1; padding: 10px; border-radius: 8px; color: white; text-align: center; font-size: 0.8em; }
+        .box-green { background: var(--green-dark); }
+        .box-orange { background: var(--theory); }
+        .formula-table { width: 100%; max-width: 1500px; margin-top: 30px; background: white; border-radius: 12px; border-collapse: collapse; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 30px;}
+        .formula-table td { padding: 12px; border: 1px solid #eee; text-align: center; font-size: 0.75em; vertical-align: middle; }
+        .attribution { margin-top: 20px; font-size: 0.85em; color: #7f8c8d; text-align: center; border-top: 1px solid #ddd; padding-top: 15px; width: 100%; }
+        .env-section { background-color: #f1f9ff; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="lang-panel" id="langContainer"></div>
+
+    <div class="header">
+        <h2 id="txt-title">Simulador Avanzado: Geometría, Luz y Cinética</h2>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h3 id="txt-sel-dist">Distribución de Luz</h3>
+            <select id="lightModelSelector" onchange="toggleLightInputs(); updateChart();">
+                <option value="direct">Plana: Luz Directa</option>
+                <option value="diffuse">Plana: Luz Difusa</option>
+                <option value="cylindrical">Cilíndrica: Luz Directa</option>
+            </select>
+
+            <div class="env-section">
+                <div class="input-group"><label>$I_o$ (µmol/m²·s)</label><input type="number" id="io" value="1000" oninput="updateChart()"></div>
+                <div class="input-group"><label>$k_a$ (m²/g)</label><input type="number" id="ka" value="0.1" step="0.01" oninput="updateChart()"></div>
+                
+                <div class="input-group">
+                    <label id="lbl-path">Espesor $L$ (m)</label>
+                    <input type="number" id="l_radius" value="0.1" step="0.01" oninput="updateChart()">
+                </div>
+                
+                <div class="input-group">
+                    <label>$\theta$ - Ángulo incidencia (°)</label>
+                    <input type="number" id="theta" value="0" step="5" oninput="updateChart()">
+                </div>
+                
+                <div id="group-diffuse" style="display:none;">
+                    <div class="input-group"><label>$\alpha_1$ - Límite inf. (°)</label><input type="number" id="alpha1" value="-45" step="5" oninput="updateChart()"></div>
+                    <div class="input-group"><label>$\alpha_2$ - Límite sup. (°)</label><input type="number" id="alpha2" value="45" step="5" oninput="updateChart()"></div>
+                </div>
+
+                <div class="input-group"><label id="lbl-cbmax">Rango $C_b$ eje X</label><input type="number" id="cbmax" value="3000" step="100" oninput="updateChart()"></div>
+            </div>
+
+            <h3 id="txt-sel-kin">Modelo Cinético</h3>
+            <select id="kineticSelector" onchange="toggleKineticInputs(); updateChart();">
+                <option value="molina">Molina et al.</option>
+                <option value="bannister">Bannister</option>
+                <option value="camacho">Camacho-Rubio</option>
+                <option value="oorshot">Van Oorshot</option>
+            </select>
+
+            <div class="input-group"><label>$\mu_{max}$ (h⁻¹)</label><input type="number" id="umax" value="0.08" step="0.005" oninput="updateChart()"></div>
+            <div class="input-group" id="group-ik"><label>$I_k$ (µmol/m²·s)</label><input type="number" id="ik" value="150" step="10" oninput="updateChart()"></div>
+            <div class="input-group" id="group-alpha-sat" style="display:none;"><label>$\alpha_{sat}$ (Saturación)</label><input type="number" id="alpha_sat" value="300" step="10" oninput="updateChart()"></div>
+            <div class="input-group" id="group-n"><label>$n$ (Molina)</label><input type="number" id="n_molina" value="2.0" step="0.1" oninput="updateChart()"></div>
+            <div class="input-group" id="group-nb" style="display:none;"><label>$nb$ (Bannister)</label><input type="number" id="nb_bannister" value="2.0" step="0.1" oninput="updateChart()"></div>
+            <div class="input-group" id="group-kappa" style="display:none;"><label>$\kappa$ (Camacho)</label><input type="number" id="kappa" value="0.1" step="0.01" oninput="updateChart()"></div>
+            <div class="input-group"><label>$m$ - Mantenimiento (h⁻¹)</label><input type="number" id="m" value="0.005" step="0.001" oninput="updateChart()"></div>
+
+            <h3 id="txt-comp">Compensación ($\mu = 0$)</h3>
+            <div class="comp-panel">
+                <div class="comp-box box-green">
+                    <strong id="lbl-mu-luz">µ (Int. Luz)</strong><br>$C_b$: <span id="cb-iav">0</span><br>$I_{av}$: <span id="iav-val-green">0</span>
+                </div>
+                <div class="comp-box box-orange">
+                    <strong id="lbl-mu-vel">µ (Int. Vel)</strong><br>$C_b$: <span id="cb-int">0</span><br>$I_{av}$: <span id="iav-val-orange">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card graph-card"><canvas id="growthChart"></canvas></div>
+    </div>
+
+    <table class="formula-table">
+        <tr>
+            <td id="td-int-eq">(1) Integración Local<br>$$\mu_{av} = \frac{1}{V}\iiint \mu_p dV - m$$</td>
+            <td id="td-kin-eq">(2) Cinética puntual</td>
+            <td id="td-light-eq">(3) Perfil de Luz</td>
+            <td>(4) Luz Promedio<br>$$I_{av} = \frac{1}{V} \iiint I_p dV$$</td>
+            <td>(5) Crecimiento Iav<br>$$\mu_{Iav} = f(I_{av}) - m$$</td>
+            <td>(6) Productividad<br>$$P_b = \mu \cdot C_b$$</td>
+        </tr>
+    </table>
+
+    <div class="attribution" id="txt-attr"></div>
+
+<script>
+    let myChart;
+    let currentLang = 'ES';
+
+    const i18n = {
+        ES: {
+            title: "Simulador Avanzado: Geometría, Luz y Cinética",
+            dist: "Distribución de Luz", kin: "Modelo Cinético", comp: "Compensación (µ=0)",
+            pathL: "Espesor $L$ (m)", pathR: "Radio $R$ (m)",
+            cbLabel: "Rango Cb eje X", xTitle: "Biomasa Cb (g/m³)", yTitle: "µ (h⁻¹)", y2Title: "Pb (g/m³·h)",
+            ds1: "µ (Int. Luz)", ds2: "µ (Int. Velocidades)", ds3: "Pb (Int. Luz)", ds4: "Pb (Int. Velocidades)",
+            attr: "Diseñado por: <strong>Jose María Fernandez Sevilla - UAL</strong><br>Asistido por <strong>Google Gemini</strong>",
+            btnTxt: { EN: 'English', DE: 'Alemán' }
+        },
+        EN: {
+            title: "Advanced Simulator: Geometry, Light & Kinetics",
+            dist: "Light Distribution", kin: "Kinetic Model", comp: "Compensation (µ=0)",
+            pathL: "Thickness $L$ (m)", pathR: "Radius $R$ (m)",
+            cbLabel: "Cb Range X-axis", xTitle: "Biomass Cb (g/m³)", yTitle: "µ (h⁻¹)", y2Title: "Pb (g/m³·h)",
+            ds1: "µ (Light Int.)", ds2: "µ (Rate Int.)", ds3: "Pb (Light Int.)", ds4: "Pb (Rate Int.)",
+            attr: "Designed by: <strong>Jose María Fernandez Sevilla - UAL</strong><br>Assisted by <strong>Google Gemini</strong>",
+            btnTxt: { ES: 'Español', DE: 'Deutsch' }
+        },
+        DE: {
+            title: "Fortgeschrittener Simulator: Geometrie, Licht & Kinetik",
+            dist: "Lichtverteilung", kin: "Kinetisches Modell", comp: "Kompensation (µ=0)",
+            pathL: "Dicke $L$ (m)", pathR: "Radius $R$ (m)",
+            cbLabel: "Cb-Bereich X-Achse", xTitle: "Biomasse Cb (g/m³)", yTitle: "µ (h⁻¹)", y2Title: "Pb (g/m³·h)",
+            ds1: "µ (Licht-Int.)", ds2: "µ (Raten-Int.)", ds3: "Pb (Licht-Int.)", ds4: "Pb (Raten-Int.)",
+            attr: "Entworfen von: <strong>Jose María Fernandez Sevilla - UAL</strong><br>Unterstützt von <strong>Google Gemini</strong>",
+            btnTxt: { ES: 'Spanisch', EN: 'Englisch' }
+        }
+    };
+
+    function toggleLightInputs() {
+        const model = document.getElementById('lightModelSelector').value;
+        const data = i18n[currentLang];
+        document.getElementById('group-diffuse').style.display = model === 'diffuse' ? 'block' : 'none';
+        document.getElementById('lbl-path').innerHTML = (model === 'cylindrical') ? data.pathR : data.pathL;
+        
+        let eq = "";
+        if (model === 'direct') eq = "(3) Luz Directa<br>$$I_p = I_o e^{-\\frac{k_a C_b x}{\\cos(\\theta)}}$$";
+        else if (model === 'diffuse') eq = "(3) Luz Difusa<br>$$I_p(x)=\\frac{I_o}{\\alpha_2 - \\alpha_1} \\int_{\\alpha_1}^{\\alpha_2}e^{\\frac{-k_a C_b x}{\\cos(\\alpha)}}d\\alpha$$";
+        else if (model === 'cylindrical') eq = "(3) Cilíndrica Directa<br>$$I_p = I_o e^{-\\frac{k_a C_b (\\sqrt{R^2-x^2}-y)}{\\cos(\\theta)}}$$";
+        
+        document.getElementById('td-light-eq').innerHTML = eq;
+        document.getElementById('td-int-eq').innerHTML = (model === 'cylindrical') ? 
+            "(1) Integración Local<br>$$\\mu_{av} = \\frac{1}{\\pi R^2} \\iint \\mu_p dx dy - m$$" : 
+            "(1) Integración Local<br>$$\\mu_{av} = \\frac{1}{L} \\int_{0}^{L} \\mu_p dx - m$$";
+            
+        if (window.MathJax) MathJax.typeset();
+    }
+
+    function toggleKineticInputs() {
+        const model = document.getElementById('kineticSelector').value;
+        const hide = (id) => document.getElementById(id).style.display = 'none';
+        const show = (id) => document.getElementById(id).style.display = 'block';
+
+        hide('group-ik'); hide('group-alpha-sat'); hide('group-n'); hide('group-nb'); hide('group-kappa');
+        
+        let eq = "";
+        if (model === 'molina') { show('group-ik'); show('group-n'); eq = "(2) Molina<br>$$\\mu_p = \\frac{\\mu_{max} I_p^n}{I_k^n + I_p^n}$$"; }
+        else if (model === 'bannister') { show('group-ik'); show('group-nb'); eq = "(2) Bannister<br>$$\\mu_p = \\frac{\\mu_{max} I_p}{(I_k^{nb} + I_p^{nb})^{1/nb}}$$"; }
+        else if (model === 'oorshot') { show('group-ik'); eq = "(2) Van Oorshot<br>$$\\mu_p = \\mu_{max}(1 - e^{-I_p/I_k})$$"; }
+        else if (model === 'camacho') { show('group-alpha-sat'); show('group-kappa'); eq = "(2) Camacho<br>$$\\mu_p = f_{norm} \\frac{\\mu_{max} I_p}{2 \\alpha_{sat}} [...] $$"; }
+        document.getElementById('td-kin-eq').innerHTML = eq;
+        if (window.MathJax) MathJax.typeset();
+    }
+
+    function calculateMup(ip, p, kineticModel) {
+        if (ip <= 1e-10) return 0;
+        if (kineticModel === 'molina') return (p.umax * Math.pow(ip, p.n)) / (Math.pow(p.ik, p.n) + Math.pow(ip, p.n));
+        if (kineticModel === 'bannister') return (p.umax * ip) / Math.pow(Math.pow(p.ik, p.nb) + Math.pow(ip, p.nb), 1/p.nb);
+        if (kineticModel === 'oorshot') return p.umax * (1 - Math.exp(-ip/p.ik));
+        if (kineticModel === 'camacho') {
+            let term = (1 + p.kappa + (p.alphaSat/ip)) - Math.sqrt(Math.pow(1 - p.kappa - (p.alphaSat/ip), 2) + 4 * p.kappa);
+            return (1 + p.kappa) * (p.umax * ip / (2 * p.alphaSat)) * term;
+        }
+    }
+
+    function getValues(cb, p, lightModel, kineticModel) {
+        let sumIp = 0, sumMup = 0;
+        const cosT = Math.cos(p.theta);
+
+        if (lightModel === 'cylindrical') {
+            // Integración 2D sobre el círculo (Grid dinámico)
+            let nodes = 35; let count = 0;
+            let step = (2 * p.L) / nodes;
+            for (let ix = 0; ix <= nodes; ix++) {
+                let x = -p.L + ix * step;
+                let yBound = Math.sqrt(Math.max(0, p.L*p.L - x*x));
+                for (let iy = 0; iy <= nodes; iy++) {
+                    let y = -p.L + iy * step;
+                    if (x*x + y*y <= p.L*p.L) {
+                        let path = (yBound - y) / cosT;
+                        let ip = p.io * Math.exp(-p.ka * cb * path);
+                        sumIp += ip; sumMup += calculateMup(ip, p, kineticModel);
+                        count++;
+                    }
+                }
+            }
+            const iav = sumIp / count;
+            const muInt = (sumMup / count) - p.m;
+            const muIav = calculateMup(iav, p, kineticModel) - p.m;
+            return { muIav, muInt: (muInt > muIav ? muIav : muInt), iav, pbIav: muIav * cb, pbInt: (muInt > muIav ? muIav : muInt) * cb };
+
+        } else if (lightModel === 'diffuse') {
+            const nodesX = 50; const nodesA = 30;
+            const dx = p.L / nodesX;
+            const dAlpha = (p.alpha2 - p.alpha1) / nodesA;
+            for (let i = 0; i <= nodesX; i++) {
+                let x = i * dx;
+                let sumExp = 0;
+                for (let j = 0; j <= nodesA; j++) {
+                    let a = p.alpha1 + j * dAlpha;
+                    sumExp += (j === 0 || j === nodesA ? 0.5 : 1) * Math.exp(-(p.ka * cb * x) / Math.cos(a));
+                }
+                let ip = (p.io / (p.alpha2 - p.alpha1)) * sumExp * dAlpha;
+                let weight = (i === 0 || i === nodesX ? 0.5 : 1);
+                sumIp += ip * weight; sumMup += calculateMup(ip, p, kineticModel) * weight;
+            }
+            const iav = (sumIp * dx) / p.L;
+            const muInt = (sumMup * dx) / p.L - p.m;
+            const muIav = calculateMup(iav, p, kineticModel) - p.m;
+            return { muIav, muInt: (muInt > muIav ? muIav : muInt), iav, pbIav: muIav * cb, pbInt: (muInt > muIav ? muIav : muInt) * cb };
+
+        } else {
+            // Directa Plana (1D Analítica/Numérica)
+            const k_eff = (p.ka * cb) / cosT;
+            const iav = (k_eff === 0) ? p.io : (p.io / (k_eff * p.L)) * (1 - Math.exp(-k_eff * p.L));
+            const nodesX = 100; const dx = p.L / nodesX;
+            for (let i = 0; i <= nodesX; i++) {
+                let ip = p.io * Math.exp(-k_eff * (i * dx));
+                sumMup += (i === 0 || i === nodesX ? 0.5 : 1) * calculateMup(ip, p, kineticModel);
+            }
+            const muInt = (sumMup * dx / p.L) - p.m;
+            const muIav = calculateMup(iav, p, kineticModel) - p.m;
+            return { muIav, muInt: (muInt > muIav ? muIav : muInt), iav, pbIav: muIav * cb, pbInt: (muInt > muIav ? muIav : muInt) * cb };
+        }
+    }
+
+    function updateChart() {
+        const lightModel = document.getElementById('lightModelSelector').value;
+        const kineticModel = document.getElementById('kineticSelector').value;
+        const p = {
+            io: parseFloat(document.getElementById('io').value),
+            ka: parseFloat(document.getElementById('ka').value),
+            L: parseFloat(document.getElementById('l_radius').value),
+            theta: (parseFloat(document.getElementById('theta').value) * Math.PI) / 180,
+            alpha1: (parseFloat(document.getElementById('alpha1').value) * Math.PI) / 180,
+            alpha2: (parseFloat(document.getElementById('alpha2').value) * Math.PI) / 180,
+            cbmax: parseFloat(document.getElementById('cbmax').value),
+            umax: parseFloat(document.getElementById('umax').value),
+            ik: parseFloat(document.getElementById('ik').value),
+            n: parseFloat(document.getElementById('n_molina').value),
+            nb: parseFloat(document.getElementById('nb_bannister').value),
+            alphaSat: parseFloat(document.getElementById('alpha_sat').value),
+            kappa: parseFloat(document.getElementById('kappa').value),
+            m: parseFloat(document.getElementById('m').value)
+        };
+
+        const labels = [], d1 = [], d2 = [], d3 = [], d4 = [];
+        const steps = 60;
+        for (let i = 0; i <= steps; i++) {
+            let cb = i * (p.cbmax / steps);
+            labels.push(cb.toFixed(0));
+            let res = getValues(cb, p, lightModel, kineticModel);
+            d1.push(res.muIav); d2.push(res.muInt); d3.push(res.pbIav); d4.push(res.pbInt);
+        }
+
+        const solve = (type) => {
+            let low = 0, high = 25000;
+            for(let i=0; i<22; i++) {
+                let mid = (low + high) / 2;
+                let res = getValues(mid, p, lightModel, kineticModel);
+                if ((type === 'iav' ? res.muIav : res.muInt) > 0) low = mid; else high = mid;
+            }
+            return { cb: low, iav: getValues(low, p, lightModel, kineticModel).iav };
+        };
+
+        const cIav = solve('iav'); const cInt = solve('int');
+        document.getElementById('cb-iav').innerText = cIav.cb.toFixed(1);
+        document.getElementById('iav-val-green').innerText = cIav.iav.toFixed(1);
+        document.getElementById('cb-int').innerText = cInt.cb.toFixed(1);
+        document.getElementById('iav-val-orange').innerText = cInt.iav.toFixed(1);
+
+        myChart.data.labels = labels;
+        myChart.data.datasets[0].data = d1; myChart.data.datasets[1].data = d2;
+        myChart.data.datasets[2].data = d3; myChart.data.datasets[3].data = d4;
+        myChart.update('none');
+    }
+
+    function setLanguage(lang) {
+        currentLang = lang; const data = i18n[lang];
+        document.getElementById('txt-title').innerText = data.title;
+        document.getElementById('txt-sel-dist').innerText = data.dist;
+        document.getElementById('txt-sel-kin').innerText = data.kin;
+        document.getElementById('txt-comp').innerText = data.comp;
+        document.getElementById('lbl-cbmax').innerText = data.cbLabel;
+        document.getElementById('txt-attr').innerHTML = data.attr;
+        myChart.options.scales.x.title.text = data.xTitle;
+        myChart.options.scales.y.title.text = data.yTitle;
+        myChart.options.scales.y2.title.text = data.y2Title;
+        myChart.data.datasets[0].label = data.ds1;
+        myChart.data.datasets[1].label = data.ds2;
+        myChart.data.datasets[2].label = data.ds3;
+        myChart.data.datasets[3].label = data.ds4;
+        updateLangButtons(); toggleLightInputs();
+    }
+
+    function updateLangButtons() {
+        const container = document.getElementById('langContainer'); container.innerHTML = '';
+        Object.keys(i18n[currentLang].btnTxt).forEach(code => {
+            const btn = document.createElement('button'); btn.className = 'lang-btn';
+            btn.innerText = i18n[currentLang].btnTxt[code];
+            btn.onclick = () => setLanguage(code); container.appendChild(btn);
+        });
+    }
+
+    const ctx = document.getElementById('growthChart').getContext('2d');
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [
+                { label: '', borderColor: '#1b5e20', borderWidth: 2, pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.2 },
+                { label: '', borderColor: '#d35400', borderWidth: 3, pointRadius: 0, fill: false, yAxisID: 'y', tension: 0.2 },
+                { label: '', borderColor: '#1b5e20', borderWidth: 1, borderDash: [5, 5], pointRadius: 0, fill: false, yAxisID: 'y2', tension: 0.2 },
+                { label: '', borderColor: '#d35400', borderWidth: 1, borderDash: [5, 5], pointRadius: 0, fill: false, yAxisID: 'y2', tension: 0.2 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true }, ticks: { maxTicksLimit: 12 } },
+                y: { position: 'left', title: { display: true }, min: -0.012 },
+                y2: { position: 'right', title: { display: true }, grid: { drawOnChartArea: false } }
+            },
+            plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+    });
+
+    window.onload = () => { toggleLightInputs(); toggleKineticInputs(); setLanguage('ES'); };
+</script>
+</body>
+</html>

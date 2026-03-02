@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBR Simulator: Species Comparison (Molina et al.)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .main-container { max-width: 1300px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .layout { display: flex; flex-wrap: wrap; gap: 20px; }
+        .controls { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 15px; }
+        .graph-container { flex: 2; min-width: 500px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .species-card { padding: 15px; border-radius: 10px; border-top: 5px solid; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .sp-a { border-color: #27ae60; }
+        .sp-b { border-color: #3498db; }
+        h3 { margin-top: 0; font-size: 1.1em; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        label { font-size: 0.8em; font-weight: bold; color: #555; }
+        input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; }
+        .comp-info { margin-top: 10px; padding: 8px; border-radius: 5px; font-size: 0.85em; background: #f8f9fa; }
+        .attribution { text-align: center; margin-top: 30px; font-size: 0.8em; color: #7f8c8d; border-top: 1px solid #ddd; padding-top: 10px; }
+        .formula { font-family: serif; font-size: 0.9em; text-align: center; background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header">
+        <h2>Growth Model Comparison (Molina et al.)</h2>
+        <div class="formula">μ = [μ<sub>max</sub> · I<sub>av</sub><sup>n</sup> / (I<sub>k</sub><sup>n</sup> + I<sub>av</sub><sup>n</sup>)] - m</div>
+    </div>
+
+    <div class="layout">
+        <div class="controls">
+            <div class="species-card sp-a">
+                <h3>Species A (Green)</h3>
+                <div class="input-grid">
+                    <div><label>μ<sub>max</sub> (h⁻¹)</label><input type="number" id="umax_a" value="0.075" step="0.005" oninput="update()"></div>
+                    <div><label>I<sub>k</sub> (µmol)</label><input type="number" id="ik_a" value="250" step="10" oninput="update()"></div>
+                    <div><label>n (shape)</label><input type="number" id="n_a" value="1.8" step="0.1" oninput="update()"></div>
+                    <div><label>m (h⁻¹)</label><input type="number" id="m_a" value="0.006" step="0.001" oninput="update()"></div>
+                </div>
+                <div class="comp-info">Comp. Point (I<sub>c</sub>): <strong id="ic_a">--</strong></div>
+            </div>
+
+            <div class="species-card sp-b">
+                <h3>Species B (Blue)</h3>
+                <div class="input-grid">
+                    <div><label>μ<sub>max</sub> (h⁻¹)</label><input type="number" id="umax_b" value="0.050" step="0.005" oninput="update()"></div>
+                    <div><label>I<sub>k</sub> (µmol)</label><input type="number" id="ik_b" value="100" step="10" oninput="update()"></div>
+                    <div><label>n (shape)</label><input type="number" id="n_b" value="1.2" step="0.1" oninput="update()"></div>
+                    <div><label>m (h⁻¹)</label><input type="number" id="m_b" value="0.004" step="0.001" oninput="update()"></div>
+                </div>
+                <div class="comp-info">Comp. Point (I<sub>c</sub>): <strong id="ic_b">--</strong></div>
+            </div>
+        </div>
+
+        <div class="graph-container">
+            <canvas id="compChart"></canvas>
+        </div>
+    </div>
+
+    <div class="attribution">
+        Developed by: <strong>Jose María Fernandez Sevilla - UAL</strong> | Technical Assistance: <strong>Google Gemini</strong>
+    </div>
+</div>
+
+<script>
+    let myChart;
+
+    function getIc(umax, ik, n, m) {
+        if (umax <= m) return 0;
+        return ik * Math.pow(m / (umax - m), 1/n);
+    }
+
+    function update() {
+        const params = [
+            { id: 'a', color: '#27ae60' },
+            { id: 'b', color: '#3498db' }
+        ];
+
+        const annotations = {};
+
+        params.forEach((sp, idx) => {
+            const umax = parseFloat(document.getElementById(`umax_${sp.id}`).value);
+            const ik = parseFloat(document.getElementById(`ik_${sp.id}`).value);
+            const n = parseFloat(document.getElementById(`n_${sp.id}`).value);
+            const m = parseFloat(document.getElementById(`m_${sp.id}`).value);
+
+            const ic = getIc(umax, ik, n, m);
+            document.getElementById(`ic_${sp.id}`).innerText = ic.toFixed(2);
+
+            const data = [];
+            for (let i = 0; i <= 2500; i += 25) {
+                let mu = (umax * Math.pow(i, n) / (Math.pow(ik, n) + Math.pow(i, n))) - m;
+                data.push(mu);
+            }
+            myChart.data.datasets[idx].data = data;
+
+            // Marcadores visuales corregidos
+            // 1. Flecha Vertical Ik (desde la mitad del crecimiento neto hasta el eje X)
+            annotations[`ik_${sp.id}`] = {
+                type: 'line', xMin: ik, xMax: ik, yMin: 0, yMax: (umax/2)-m,
+                borderColor: sp.color, borderDash: [4, 4], borderWidth: 2,
+                label: { 
+                    display: true, 
+                    content: 'Ik ' + sp.id.toUpperCase(), 
+                    position: 'start', 
+                    backgroundColor: sp.color, 
+                    color: '#fff', 
+                    font: {size: 11},
+                    yAdjust: 10
+                },
+                arrowHeads: { end: { display: true } }
+            };
+
+            // 2. Flecha Horizontal Mu_max apuntando al eje Y
+            annotations[`umax_${sp.id}`] = {
+                type: 'line', 
+                xMin: 0, 
+                xMax: ik * 1.5, // La flecha nace un poco después de Ik para que se vea
+                yMin: umax - m, 
+                yMax: umax - m,
+                borderColor: sp.color, 
+                borderWidth: 2, 
+                arrowHeads: { start: { display: true } }, // Flecha en el inicio (eje Y)
+                label: {
+                    display: true,
+                    content: 'μ_max ' + sp.id.toUpperCase(),
+                    position: 'end',
+                    backgroundColor: 'rgba(255,255,255,0.8)',
+                    color: sp.color,
+                    font: { size: 10, weight: 'bold' }
+                }
+            };
+        });
+
+        myChart.options.plugins.annotation.annotations = annotations;
+        myChart.update();
+    }
+
+    const ctx = document.getElementById('compChart').getContext('2d');
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length: 101}, (_, i) => i * 25),
+            datasets: [
+                { label: 'Species A', borderColor: '#27ae60', data: [], pointRadius: 0, tension: 0.2 },
+                { label: 'Species B', borderColor: '#3498db', data: [], pointRadius: 0, tension: 0.2 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { type: 'linear', title: { display: true, text: 'Iav (µmol/m²·s)' }, min: 0, max: 2500 },
+                y: { title: { display: true, text: 'μ (h⁻¹)' }, min: -0.015 }
+            },
+            plugins: { 
+                annotation: { annotations: {} },
+                legend: { position: 'top' }
+            }
+        }
+    });
+
+    update();
+</script>
+</body>
+</html>

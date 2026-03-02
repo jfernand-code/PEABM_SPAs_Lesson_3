@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PBR Research Benchmarker - UAL</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
+        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .header { text-align: center; border-bottom: 3px solid #27ae60; margin-bottom: 20px; }
+        .layout { display: flex; gap: 25px; flex-wrap: wrap; }
+        .sidebar { flex: 1; min-width: 350px; }
+        .main-content { flex: 2; min-width: 500px; }
+        textarea { width: 100%; height: 180px; font-family: monospace; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; }
+        .controls { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .grid-params { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        label { font-size: 0.85em; font-weight: bold; color: #555; }
+        input, button { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; box-sizing: border-box; }
+        button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        button:hover { background: #219150; }
+        .copy-btn { background: #3498db; margin-top: 10px;}
+        .results-box { background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 5px solid #3498db; }
+        table { width: 100%; font-size: 0.85em; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background: #f2f2f2; }
+        .chart-container { position: relative; height: 350px; margin-bottom: 30px; }
+        .attribution { text-align: center; margin-top: 30px; font-size: 0.8em; color: #888; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>PBR Research Benchmarker: Molina vs Bannister vs Camacho-Rubio</h2>
+    </div>
+
+    <div class="layout">
+        <div class="sidebar">
+            <label><strong>1. Experimental Data</strong> (I_av [tab] µ_exp):</label>
+            <textarea id="dataInput" placeholder="Paste data here..."></textarea>
+            
+            <div class="controls">
+                <label><strong>2. Initial Seeds:</strong></label>
+                <div class="grid-params">
+                    <div><label>µ_max (h⁻¹)</label><input type="number" id="s_umax" value="0.07" step="0.001"></div>
+                    <div><label>Ik / α seed</label><input type="number" id="s_ik" value="100"></div>
+                    <div><label>n seed</label><input type="number" id="s_n" value="1.7" step="0.1"></div>
+                    <div><label>κ seed (Camacho)</label><input type="number" id="s_k" value="0.1" step="0.01"></div>
+                </div>
+                <button onclick="runAllFits()">Run Advanced Regression</button>
+            </div>
+
+            <div id="resDiv" class="results-box" style="display:none;">
+                <strong>Parameter Estimation & Std. Error (S.E.):</strong>
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>µ_max ± S.E.</th>
+                            <th>Ik/α ± S.E.</th>
+                            <th>n/κ ± S.E.</th>
+                            <th>R²</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+                <button class="copy-btn" onclick="copyTable()">Copy Table for Report</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="chart-container">
+                <canvas id="mainChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="residualChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="attribution">
+        Designed by <strong>Jose María Fernández Sevilla - UAL</strong> | Assisted by <strong>Google Gemini</strong><br>
+        © 2026. Licensed under CC BY-NC-SA 4.0.
+    </div>
+</div>
+
+<script>
+    let mainChart, residualChart;
+    const modelFunctions = {
+        molina: (I, p) => (p.umax * Math.pow(I, p.n)) / (Math.pow(p.ik, p.n) + Math.pow(I, p.n)),
+        bannister: (I, p) => (p.umax * I) / Math.pow(Math.pow(p.ik, p.n) + Math.pow(I, p.n), 1/p.n),
+        camacho: (I, p) => {
+            if (I <= 0) return 0;
+            const term = (p.umax * I) / (2 * p.ik);
+            const radical = Math.sqrt(Math.pow(1 - p.k - (p.ik/I), 2) + 4 * p.k);
+            return term * (1 + p.k + (p.ik/I) - radical);
+        }
+    };
+
+    function runAllFits() {
+        const raw = document.getElementById('dataInput').value.replace(/,/g, '.').trim();
+        const pts = raw.split('\n').map(l => {
+            const d = l.trim().split(/\s+/);
+            return { x: parseFloat(d[0]), y: parseFloat(d[1]) };
+        }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+        if (pts.length < 4) return alert("At least 4 points needed for Error Estimation.");
+
+        const initialSeeds = { 
+            umax: parseFloat(document.getElementById('s_umax').value), 
+            ik: parseFloat(document.getElementById('s_ik').value), 
+            n: parseFloat(document.getElementById('s_n').value),
+            k: parseFloat(document.getElementById('s_k').value)
+        };
+
+        const results = [];
+        const modelKeys = ['molina', 'bannister', 'camacho'];
+
+        modelKeys.forEach(mKey => {
+            let p = {...initialSeeds};
+            let minErr = Infinity;
+            const keysToTune = mKey === 'camacho' ? ['umax', 'ik', 'k'] : ['umax', 'ik', 'n'];
+
+            // 1. Optimización (Hill Climbing)
+            [0.1, 0.01, 0.001, 0.0001].forEach(step => {
+                for (let i = 0; i < 400; i++) {
+                    let bestMove = null;
+                    keysToTune.forEach(key => {
+                        [1+step, 1-step].forEach(mult => {
+                            let nextP = {...p, [key]: p[key] * mult};
+                            let err = pts.reduce((sum, pt) => sum + Math.pow(pt.y - modelFunctions[mKey](pt.x, nextP), 2), 0);
+                            if (err < minErr) { minErr = err; bestMove = nextP; }
+                        });
+                    });
+                    if (bestMove) p = bestMove; else break;
+                }
+            });
+
+            // 2. Estimación de Error Estándar (Jackknife/Numerical Proxy)
+            const SE = {};
+            keysToTune.forEach(key => {
+                const delta = p[key] * 0.01;
+                let pPlus = {...p, [key]: p[key] + delta};
+                let pMinus = {...p, [key]: p[key] - delta};
+                let errPlus = pts.reduce((sum, pt) => sum + Math.pow(pt.y - modelFunctions[mKey](pt.x, pPlus), 2), 0);
+                let errMinus = pts.reduce((sum, pt) => sum + Math.pow(pt.y - modelFunctions[mKey](pt.x, pMinus), 2), 0);
+                let curvature = (errPlus - 2 * minErr + errMinus) / (delta * delta);
+                SE[key] = Math.sqrt(Math.abs(2 * (minErr/(pts.length - keysToTune.length)) / (curvature || 1)));
+            });
+
+            const meanY = pts.reduce((a, b) => a + b.y, 0) / pts.length;
+            const ssTot = pts.reduce((a, b) => a + Math.pow(b.y - meanY, 2), 0);
+            const r2 = 1 - (minErr / ssTot);
+            results.push({ key: mKey, params: p, se: SE, r2: r2 });
+        });
+
+        displayResults(pts, results);
+    }
+
+    function displayResults(pts, results) {
+        const tbody = document.getElementById('resultsBody');
+        tbody.innerHTML = '';
+        document.getElementById('resDiv').style.display = 'block';
+        let copyText = "Model Comparison with Std. Error\nModel\tumax\tIk/alpha\tn/kappa\tR2\n";
+
+        results.forEach(res => {
+            const k3 = res.key === 'camacho' ? 'k' : 'n';
+            const row = `<tr>
+                <td><strong>${res.key.toUpperCase()}</strong></td>
+                <td>${res.params.umax.toFixed(4)} <small>±${res.se.umax.toFixed(5)}</small></td>
+                <td>${res.params.ik.toFixed(1)} <small>±${res.se.ik.toFixed(2)}</small></td>
+                <td>${res.params[k3].toFixed(3)} <small>±${res.se[k3].toFixed(4)}</small></td>
+                <td>${res.r2.toFixed(4)}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+            copyText += `${res.key}\t${res.params.umax.toFixed(4)}±${res.se.umax.toFixed(5)}\t${res.params.ik.toFixed(1)}±${res.se.ik.toFixed(2)}\t${res.params[k3].toFixed(3)}±${res.se[k3].toFixed(4)}\t${res.r2.toFixed(4)}\n`;
+        });
+        window.lastResultsText = copyText;
+        updateCharts(pts, results);
+    }
+
+    function updateCharts(pts, results) {
+        const maxX = Math.max(...pts.map(pt => pt.x)) * 1.1;
+        mainChart.data.datasets[0].data = pts;
+
+        results.forEach((res, idx) => {
+            // Main curves
+            const curve = [];
+            for (let i = 0; i <= maxX; i += maxX/100) curve.push({x: i, y: modelFunctions[res.key](i, res.params)});
+            mainChart.data.datasets[idx+1].data = curve;
+            mainChart.data.datasets[idx+1].label = `${res.key.toUpperCase()} (R²=${res.r2.toFixed(3)})`;
+
+            // Residuals
+            const residuals = pts.map(p => ({x: p.x, y: p.y - modelFunctions[res.key](p.x, res.params)}));
+            residualChart.data.datasets[idx].data = residuals;
+            residualChart.data.datasets[idx].label = `Res: ${res.key.toUpperCase()}`;
+        });
+        mainChart.update();
+        residualChart.update();
+    }
+
+    function copyTable() {
+        navigator.clipboard.writeText(window.lastResultsText).then(() => alert("Detailed report copied!"));
+    }
+
+    // Chart Inits
+    const commonScales = { x: { type: 'linear', title: {display: true, text: 'Iav (µmol/m²s)'}}};
+    
+    mainChart = new Chart(document.getElementById('mainChart'), {
+        type: 'line',
+        data: { datasets: [
+            { label: 'Exp. Data', data: [], showLine: false, backgroundColor: '#000', pointRadius: 5 },
+            { label: 'Molina', data: [], borderColor: '#e67e22', pointRadius: 0 },
+            { label: 'Bannister', data: [], borderColor: '#9b59b6', pointRadius: 0 },
+            { label: 'Camacho-Rubio', data: [], borderColor: '#27ae60', pointRadius: 0 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, scales: { ...commonScales, y: {title: {display: true, text: 'µ (h⁻¹)'}, min:0} }}
+    });
+
+    residualChart = new Chart(document.getElementById('residualChart'), {
+        type: 'scatter',
+        data: { datasets: [
+            { label: 'Molina Res.', data: [], backgroundColor: '#e67e22' },
+            { label: 'Bannister Res.', data: [], backgroundColor: '#9b59b6' },
+            { label: 'Camacho Res.', data: [], backgroundColor: '#27ae60' }
+        ]},
+        options: { 
+            responsive: true, maintainAspectRatio: false,
+            scales: { ...commonScales, y: {title: {display: true, text: 'Residuos (µ_exp - µ_calc)'}}},
+            plugins: { title: { display: true, text: 'Residual Plot (Homoscedasticity Analysis)' }}
+        }
+    });
+</script>
+</body>
+</html>

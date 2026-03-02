@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAL - Photobioreactor Growth Models Master</title>
+    
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --accent: #c0392b; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .lang-panel { align-self: flex-end; margin-bottom: 15px; display: flex; gap: 8px; }
+        .lang-btn { background: white; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85em; font-weight: 600; color: var(--primary); transition: 0.3s; }
+        .lang-btn:hover { background: var(--primary); color: white; }
+        .header { text-align: center; margin-bottom: 25px; width: 100%; max-width: 1200px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border-top: 5px solid var(--primary); }
+        .selector-panel { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 15px; }
+        .model-btn { padding: 8px 16px; border: 2px solid #eee; border-radius: 25px; background: #fdfdfd; cursor: pointer; font-size: 0.85em; transition: 0.3s; }
+        .model-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; max-width: 1300px; }
+        .controls { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex: 1; min-width: 320px; }
+        .graph-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex: 3; min-width: 600px; min-height: 550px; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.85em; color: #444; }
+        input { width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px; }
+        .attribution { margin-top: 40px; font-size: 0.8em; color: #95a5a6; text-align: center; border-top: 1px solid #eee; padding-top: 15px; width: 100%; }
+        h3 { border-bottom: 1px solid #eee; padding-bottom: 8px; color: var(--primary); font-size: 1.1em; margin-top: 0; }
+        .env-section { background-color: #fff4e6; padding: 10px; border-radius: 8px; border-left: 4px solid #e67e22; margin-bottom: 15px; }
+        .formula-table { width: 100%; max-width: 1200px; margin-top: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; border-collapse: collapse; }
+        .formula-table th { background: var(--primary); color: white; padding: 15px; text-align: left; }
+        .formula-table td { padding: 15px; border-bottom: 1px solid #eee; font-size: 1.1em; }
+        .formula-table tr:hover { background-color: #fcfcfc; }
+        .model-name { font-weight: bold; color: var(--primary); width: 25%; }
+    </style>
+</head>
+<body>
+
+    <div class="lang-panel" id="langContainer"></div>
+
+    <div class="header">
+        <h2 id="txt-title">Microalgae Growth Models Comparison</h2>
+        <p id="txt-subtitle">Comparing kinetic responses to average irradiance ($I_{av}$)</p>
+        <div class="selector-panel" id="selector">
+        <button class="model-btn active" onclick="toggleModel(0)">Tamiya</button>
+        <button class="model-btn" onclick="toggleModel(1)">Van Oorshot</button>
+        <button class="model-btn" onclick="toggleModel(2)">Blackmann</button>
+        <button class="model-btn active" onclick="toggleModel(3)">Molina et al.</button>
+        <button class="model-btn" onclick="toggleModel(4)">Bannister</button>
+        <button class="model-btn" onclick="toggleModel(5)">Camacho-Rubio</button>
+    </div>
+    </div>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="env-section">
+                <h3 id="txt-env">Environmental Parameters</h3>
+                <div class="input-group">
+                    <label id="lbl-iav">Max $I_{av}$ for X-axis (µmol/m²·s)</label>
+                    <input type="number" id="iav_max" value="1000" step="100" oninput="update()">
+                </div>
+            </div>
+
+            <h3 id="txt-common">Common Parameters</h3>
+            <div class="input-group">
+                <label>$\mu_{max}$ (h⁻¹)</label>
+                <input type="number" id="umax" value="0.08" step="0.005" oninput="update()">
+            </div>
+            <div class="input-group">
+                <label>$I_k$ (µmol/m²·s)</label>
+                <input type="number" id="ik" value="200" step="10" oninput="update()">
+            </div>
+            <div class="input-group">
+                <label>$m$ - Maintenance (h⁻¹)</label>
+                <input type="number" id="m" value="0" step="0.001" oninput="update()">
+            </div>
+            
+            <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+            
+            <h3 id="txt-spec">Specific Parameters</h3>
+            <div class="input-group">
+                <label>$n$ - Shape (Molina/Bannister)</label>
+                <input type="number" id="n_p" value="2.0" step="0.1" oninput="update()">
+            </div>
+            <div class="input-group">
+                <label>$\alpha$ - (Blackmann/Camacho)</label>
+                <input type="number" id="alpha" value="400" step="10" oninput="update()">
+            </div>
+            <div class="input-group">
+                <label>$\kappa$ - (Camacho-Rubio)</label>
+                <input type="number" id="kappa" value="0.1" step="0.01" oninput="update()">
+            </div>
+        </div>
+
+        <div class="graph-card">
+            <canvas id="compChart"></canvas>
+        </div>
+    </div>
+<table class="formula-table">
+        <thead>
+            <tr>
+                <th id="th-model">Model</th>
+                <th id="th-equation">Equation</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td class="model-name">Tamiya</td><td>$$\mu = \frac{\mu_{max} \cdot I_{av}}{I_k + I_{av}} - m$$</td></tr>
+            <tr><td class="model-name">Van Oorshot</td><td>$$\mu = \mu_{max} \cdot \left( 1 - e^{-\frac{I_{av}}{I_k}} \right) - m$$</td></tr>
+            <tr><td class="model-name">Blackmann</td><td>$$\mu = \frac{\mu_{max} \cdot I_{av}}{2 \cdot \alpha} \left[ 1 + \frac{\alpha}{I_{av}} - \sqrt{\left( 1 - \frac{\alpha}{I_{av}} \right)^2} \right] - m$$</td></tr>
+            <tr><td class="model-name">Molina et al.</td><td>$$\mu = \frac{\mu_{max} \cdot I_{av}^n}{I_k^n + I_{av}^n} - m$$</td></tr>
+            <tr><td class="model-name">Bannister</td><td>$$\mu = \frac{\mu_{max} \cdot I_{av}}{(I_k^n + I_{av}^n)^{1/n}} - m$$</td></tr>
+            <tr><td class="model-name">Camacho-Rubio</td><td>$$\mu = \frac{\mu_{max} \cdot I_{av}}{2 \cdot \alpha} \left[ 1 + \kappa + \frac{\alpha}{I_{av}} - \sqrt{\left( 1 - \kappa - \frac{\alpha}{I_{av}} \right)^2 + 4\kappa} \right] - m$$</td></tr>
+        </tbody>
+    </table>
+    <div class="attribution" id="txt-attr">
+        Developed by: <strong>Jose María Fernandez Sevilla - UAL</strong>
+    </div>
+
+<script>
+    let chart;
+    let currentLang = 'EN';
+    const activeModels = [true, false, false, true, false, false];
+
+    const i18n = {
+        EN: { 
+            title: "Microalgae Growth Models Comparison", 
+            subtitle: "Comparing kinetic responses to average irradiance ($I_{av}$)", 
+            env: "Environmental Parameters", 
+            iavLbl: "Max $I_{av}$ for X-axis", 
+            common: "Common Parameters", 
+            spec: "Specific Parameters", 
+            thModel: "Model",
+            thEq: "Equation",
+            attr: "Developed by: <strong>Jose María Fernandez Sevilla - UAL</strong>", 
+            xLabel: "Iav (µmol·photons/m²·s)", 
+            yLabel: "μ (h⁻¹)", 
+            btnTxt: { EN: 'English', ES: 'Español', DE: 'Deutsch' } 
+        },
+        ES: { 
+            title: "Comparativa de Modelos de Crecimiento", 
+            subtitle: "Comparación de respuestas cinéticas frente a la irradiancia promedio ($I_{av}$)", 
+            env: "Parámetros Ambientales", 
+            iavLbl: "Máx $I_{av}$ para eje X", 
+            common: "Parámetros Comunes", 
+            spec: "Parámetros Específicos", 
+            thModel: "Modelo",
+            thEq: "Ecuación",
+            attr: "Desarrollado por: <strong>Jose María Fernandez Sevilla - UAL</strong>", 
+            xLabel: "Iav (µmol·fotones/m²·s)", 
+            yLabel: "μ (h⁻¹)", 
+            btnTxt: { EN: 'English', ES: 'Español', DE: 'Alemán' } 
+        },
+        DE: { 
+            title: "Vergleich von Algenwachstumsmodellen", 
+            subtitle: "Vergleich kinetischer Reaktionen auf die durchschnittliche Bestrahlungsstärke ($I_{av}$)", 
+            env: "Umweltparameter", 
+            iavLbl: "Max $I_{av}$ für X-Achse", 
+            common: "Allgemeine Parameter", 
+            spec: "Spezifische Parameter", 
+            thModel: "Modell",
+            thEq: "Gleichung",
+            attr: "Entwickelt von: <strong>Jose María Fernandez Sevilla - UAL</strong>", 
+            xLabel: "Iav (µmol·Photonen/m²·s)", 
+            yLabel: "μ (h⁻¹)", 
+            btnTxt: { EN: 'Englisch', ES: 'Spanisch', DE: 'Deutsch' } 
+        }
+    };
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        const data = i18n[lang];
+        
+        // Actualización de la tabla de ecuaciones
+        document.getElementById('th-model').innerText = data.thModel;
+        document.getElementById('th-equation').innerText = data.thEq;
+        
+        // Actualización de títulos y secciones
+        document.getElementById('txt-title').innerHTML = data.title;
+        document.getElementById('txt-subtitle').innerHTML = data.subtitle;
+        document.getElementById('txt-env').innerText = data.env;
+        document.getElementById('lbl-iav').innerText = data.iavLbl + " (µmol/m²·s)";
+        document.getElementById('txt-common').innerText = data.common;
+        document.getElementById('txt-spec').innerText = data.spec;
+        
+        // Atribución y soporte
+        document.getElementById('txt-attr').innerHTML = data.attr + "<br>Technical Support: <strong>Gemini 3 Flash</strong>";
+        
+        // Actualización de etiquetas del gráfico
+        chart.options.scales.x.title.text = data.xLabel;
+        chart.options.scales.y.title.text = data.yLabel;
+        
+        // Refresco de interfaz y renderizado de ecuaciones
+        updateLangButtons();
+        update();
+        
+        // Esta línea es crucial para que las fórmulas de la tabla se vean bien tras cambiar el idioma
+        if (window.MathJax && window.MathJax.typeset) {
+            window.MathJax.typeset();
+        }
+    }
+
+    function updateLangButtons() {
+        const container = document.getElementById('langContainer');
+        container.innerHTML = '';
+        ['EN', 'ES', 'DE'].forEach(code => {
+            if (code !== currentLang) {
+                const btn = document.createElement('button'); btn.className = 'lang-btn';
+                btn.innerText = i18n[currentLang].btnTxt[code];
+                btn.onclick = () => setLanguage(code); container.appendChild(btn);
+            }
+        });
+    }
+
+    function toggleModel(index) {
+        activeModels[index] = !activeModels[index];
+        const btns = document.querySelectorAll('.model-btn');
+        btns[index].classList.toggle('active'); update();
+    }
+
+    function update() {
+        const iav_max = parseFloat(document.getElementById('iav_max').value) || 1000;
+        const umax = parseFloat(document.getElementById('umax').value);
+        const ik = parseFloat(document.getElementById('ik').value);
+        const m = parseFloat(document.getElementById('m').value);
+        const n = parseFloat(document.getElementById('n_p').value);
+        const alpha = parseFloat(document.getElementById('alpha').value);
+        const kappa = parseFloat(document.getElementById('kappa').value);
+
+        const labels = [];
+        const datasets = chart.data.datasets;
+        datasets.forEach(ds => ds.data = []); // Limpiar datos previos
+
+        const step = iav_max / 100; // 100 puntos de resolución
+
+        for (let I = 0; I <= iav_max; I += step) {
+            labels.push(I);
+            datasets[0].data.push((umax * I / (ik + I)) - m);
+            datasets[1].data.push((umax * (1 - Math.exp(-I/ik))) - m);
+            let b_val = (umax * I / (2 * alpha)) * (1 + (alpha/I) - Math.sqrt(Math.pow(1 - (alpha/I), 2))) - m;
+            datasets[2].data.push(I === 0 ? -m : b_val);
+            datasets[3].data.push((umax * Math.pow(I, n) / (Math.pow(ik, n) + Math.pow(I, n))) - m);
+            datasets[4].data.push((umax * I / Math.pow(Math.pow(ik, n) + Math.pow(I, n), 1/n)) - m);
+            let c_val = (umax * I / (2 * alpha)) * (1 + kappa + (alpha/I) - Math.sqrt(Math.pow(1 - kappa - (alpha/I), 2) + 4 * kappa)) - m;
+            datasets[5].data.push(I === 0 ? -m : c_val);
+        }
+
+        chart.options.scales.x.max = iav_max;
+        chart.options.plugins.annotation.annotations = {
+            lineUmax: { type: 'line', yMin: umax, yMax: umax, borderColor: 'rgba(231, 76, 60, 0.8)', borderWidth: 1.5, borderDash: [6, 6], label: { display: true, content: 'μ_max', position: 'end', backgroundColor: 'rgba(231, 76, 60, 0.8)', font: { size: 10 } } },
+            lineIk: { type: 'line', xMin: ik, xMax: ik, yMin: 0, yMax: umax / 2, borderColor: 'rgba(46, 204, 113, 1.0)', borderWidth: 2, arrowHeads: { end: { display: true, fill: true, length: 10, width: 6 } }, label: { display: true, content: 'Ik', position: 'center', backgroundColor: 'rgba(46, 204, 113, 0.8)', font: { size: 10 } } }
+        };
+
+        chart.data.labels = labels;
+        datasets.forEach((ds, i) => ds.hidden = !activeModels[i]);
+        chart.update();
+    }
+
+    const ctx = document.getElementById('compChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [
+            {label:'Tamiya', borderColor:'#3498db', tension:0.3, pointRadius:0},
+            {label:'Van Oorshot', borderColor:'#e67e22', tension:0.3, pointRadius:0},
+            {label:'Blackmann', borderColor:'#9b59b6', tension:0.3, pointRadius:0},
+            {label:'Molina', borderColor:'#27ae60', tension:0.3, pointRadius:0},
+            {label:'Bannister', borderColor:'#f1c40f', tension:0.3, pointRadius:0},
+            {label:'Camacho-Rubio', borderColor:'#e74c3c', tension:0.3, pointRadius:0}
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { type: 'linear', min: 0, title: { display: true } },
+                y: { title: { display: true }, min: -0.01 }
+            },
+            plugins: { legend: { position: 'bottom' }, annotation: { annotations: {} } }
+        }
+    });
+    setLanguage('EN');
+</script>
+</body>
+</html>

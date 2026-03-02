@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Molina et al. Growth Model - Interactive</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; max-width: 1200px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex: 1; min-width: 320px; }
+        .graph-card { flex: 2; min-width: 500px; }
+        h2 { color: #2c3e50; text-align: center; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #555; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .comp-box { background: #e8f6fd; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-top: 20px; }
+        .attribution { margin-top: 30px; font-size: 0.8em; color: #7f8c8d; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; width: 100%; }
+        .formula { background: #eee; padding: 10px; border-radius: 5px; font-family: serif; font-size: 1.1em; text-align: center; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <h2>Microalgae Growth Model (Molina et al.)</h2>
+    
+    <div class="container">
+        <div class="card">
+            <div class="formula">
+                μ = [μ<sub>max</sub> · I<sub>av</sub><sup>n</sup> / (I<sub>k</sub><sup>n</sup> + I<sub>av</sub><sup>n</sup>)] - m
+            </div>
+            
+            <div class="input-group">
+                <label>μ<sub>max</sub> - Max Growth Rate (h⁻¹)</label>
+                <input type="number" id="umax" value="0.075" step="0.005" oninput="updateChart()">
+            </div>
+            <div class="input-group">
+                <label>I<sub>k</sub> - Saturation Constant (µmol/m²·s)</label>
+                <input type="number" id="ik" value="250" step="10" oninput="inputUpdate()">
+            </div>
+            <div class="input-group">
+                <label>n - Shape Parameter (adimensional)</label>
+                <input type="number" id="n_param" value="1.8" step="0.1" oninput="updateChart()">
+            </div>
+            <div class="input-group">
+                <label>m - Maintenance Coefficient (h⁻¹)</label>
+                <input type="number" id="m" value="0.006" step="0.001" oninput="updateChart()">
+            </div>
+
+            <div class="comp-box">
+                <strong>Compensation Point (I<sub>c</sub>):</strong><br>
+                <span id="ic_val" style="font-size: 1.2em; color: #2980b9;">0.00</span> µmol/m²·s
+            </div>
+        </div>
+
+        <div class="card graph-card">
+            <canvas id="growthChart"></canvas>
+        </div>
+    </div>
+
+    <div class="attribution">
+        Developed by: <strong>Jose María Fernandez Sevilla - UAL</strong><br>
+        Technical Assistance: <strong>Google Gemini</strong>
+    </div>
+
+<script>
+    let myChart;
+
+    function inputUpdate() { updateChart(); }
+
+    function updateChart() {
+        const umax = parseFloat(document.getElementById('umax').value);
+        const ik = parseFloat(document.getElementById('ik').value);
+        const n = parseFloat(document.getElementById('n_param').value);
+        const m = parseFloat(document.getElementById('m').value);
+
+        // Cálculo del punto de compensación Ic
+        let ic = 0;
+        if (umax > m) {
+            ic = ik * Math.pow(m / (umax - m), 1/n);
+        }
+        document.getElementById('ic_val').innerText = ic.toFixed(2);
+
+        const labels = [];
+        const dataPoints = [];
+        for (let iav = 0; iav <= 2500; iav += 25) {
+            labels.push(iav);
+            let mu = (umax * Math.pow(iav, n) / (Math.pow(ik, n) + Math.pow(iav, n))) - m;
+            dataPoints.push(mu);
+        }
+
+        myChart.data.labels = labels;
+        myChart.data.datasets[0].data = dataPoints;
+
+        // Anotaciones Dinámicas
+        myChart.options.plugins.annotation.annotations = {
+            // Línea horizontal mu_max
+            lineUmax: {
+                type: 'line', yMin: umax - m, yMax: umax - m, borderColor: 'rgba(231, 76, 60, 0.5)', borderDash: [5, 5], label: { display: true, content: 'μ_max net', position: 'end' }
+            },
+            // Flecha Vertical Ik desde mu_max/2
+            arrowIk: {
+                type: 'line', xMin: ik, xMax: ik, yMin: 0, yMax: (umax / 2) - m, borderColor: '#3498db', borderWidth: 2, 
+                label: { display: true, content: 'Ik', position: 'center' },
+                arrowHeads: { end: { display: true } }
+            },
+            // Flecha horizontal hacia el eje de ordenadas para mu_max
+            arrowUmax: {
+                type: 'line', xMin: 0, xMax: 400, yMin: umax-m, yMax: umax-m, borderColor: '#e74c3c', borderWidth: 2,
+                arrowHeads: { start: { display: true } }
+            }
+        };
+
+        myChart.update();
+    }
+
+    const ctx = document.getElementById('growthChart').getContext('2d');
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Growth Rate μ (h⁻¹)',
+                data: [],
+                borderColor: '#27ae60',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.2
+            }]
+        },
+        options: {
+            scales: {
+                x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Iav (µmol·photons/m²·s)' }, min: 0, max: 2500 },
+                y: { title: { display: true, text: 'μ (h⁻¹)' }, min: -0.015 }
+            },
+            plugins: {
+                annotation: { annotations: {} }
+            }
+        }
+    });
+
+    updateChart();
+</script>
+</body>
+</html>
